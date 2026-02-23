@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AssetRipper</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@700;800&display=swap');
+
+:root {
+  --bg: #080810;
+  --s1: #0f0f1a;
+  --s2: #16161f;
+  --border: #252535;
+  --accent: #00ff88;
+  --blue: #4d9fff;
+  --purple: #9b72ff;
+  --orange: #ff7043;
+  --yellow: #ffcc02;
+  --red: #ff4466;
+  --text: #e0e0f0;
+  --muted: #555570;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+  font-size: 13px;
+}
+
+/* grid bg */
+body::before {
+  content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(0,255,136,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,.025) 1px,transparent 1px);
+  background-size:32px 32px;pointer-events:none;z-index:0;
+}
+
+.app {position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh}
+
+/* ── TOP BAR ───────────────────────────────── */
+.topbar {
+  display:flex;align-items:center;gap:16px;
+  padding:0 24px;height:56px;
+  background:var(--s1);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+}
+
+.logo {
+  font-family:'Syne',sans-serif;font-size:18px;font-weight:800;
+  letter-spacing:-0.5px;white-space:nowrap;
+}
+.logo span{color:var(--accent)}
+
+.url-bar {
+  flex:1;display:flex;gap:0;max-width:680px;
+}
+
+.url-bar input {
+  flex:1;background:var(--bg);border:1px solid var(--border);
+  border-right:none;color:var(--text);
+  font-family:'JetBrains Mono',monospace;font-size:13px;
+  padding:9px 14px;outline:none;transition:border-color .2s;
+}
+.url-bar input:focus{border-color:var(--accent)}
+.url-bar input::placeholder{color:var(--muted)}
+
+.go-btn {
+  background:var(--accent);color:#000;border:none;
+  font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+  padding:9px 22px;cursor:pointer;letter-spacing:1px;
+  text-transform:uppercase;transition:background .15s;white-space:nowrap;
+}
+.go-btn:hover{background:#00ffaa}
+.go-btn:disabled{background:var(--muted);cursor:not-allowed}
+
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+
+.server-status {
+  display:flex;align-items:center;gap:6px;
+  font-size:10px;color:var(--muted);
+}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.status-dot.ok{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.status-dot.err{background:var(--red)}
+
+/* ── LAYOUT ─────────────────────────────────── */
+.main {display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ─────────────────────────────────── */
+.sidebar {
+  width:220px;flex-shrink:0;
+  background:var(--s1);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;
+}
+
+.sidebar-section{padding:16px 0}
+.sidebar-label {
+  font-size:9px;letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--muted);padding:0 16px 10px;
+}
+
+.nav-item {
+  display:flex;align-items:center;gap:10px;
+  padding:9px 16px;cursor:pointer;
+  transition:background .15s;border-left:2px solid transparent;
+}
+.nav-item:hover{background:var(--s2)}
+.nav-item.active{background:var(--s2);border-left-color:var(--accent)}
+
+.nav-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
+.nav-label{font-size:12px;flex:1}
+.nav-count {
+  font-size:10px;padding:1px 7px;
+  background:var(--bg);color:var(--muted);
+  min-width:24px;text-align:center;
+}
+.nav-item.active .nav-count{background:rgba(0,255,136,.12);color:var(--accent)}
+
+.sidebar-stats{padding:16px;border-top:1px solid var(--border);margin-top:auto}
+.stat-row{display:flex;justify-content:space-between;padding:4px 0;font-size:11px}
+.stat-label{color:var(--muted)}
+.stat-val{color:var(--text);font-weight:700}
+
+/* ── CONTENT ─────────────────────────────────── */
+.content {
+  flex:1;overflow-y:auto;display:flex;flex-direction:column;
+}
+
+/* ── HERO / EMPTY ────────────────────────────── */
+.hero {
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:16px;padding:40px;text-align:center;
+}
+
+.hero-ascii {
+  font-size:11px;line-height:1.3;color:var(--accent);
+  opacity:.6;letter-spacing:1px;
+}
+
+.hero-title{font-family:'Syne',sans-serif;font-size:28px;font-weight:800}
+.hero-title span{color:var(--accent)}
+.hero-sub{font-size:12px;color:var(--muted);max-width:420px;line-height:1.7}
+
+.how-to {
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+  max-width:640px;margin-top:8px;
+}
+.how-step {
+  background:var(--s1);border:1px solid var(--border);
+  padding:16px;text-align:left;
+}
+.step-num{font-size:22px;font-weight:800;color:var(--accent);opacity:.5;margin-bottom:6px}
+.step-text{font-size:11px;color:var(--muted);line-height:1.5}
+
+/* ── TOOLBAR ──────────────────────────────── */
+.toolbar {
+  display:none;padding:12px 20px;
+  background:var(--s1);border-bottom:1px solid var(--border);
+  align-items:center;gap:10px;flex-wrap:wrap;
+}
+.toolbar.visible{display:flex}
+
+.search-wrap{position:relative;flex:1;min-width:200px;max-width:360px}
+.search-wrap::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px}
+.search-wrap input{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;
+  padding:7px 10px 7px 30px;outline:none;
+}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-wrap input::placeholder{color:var(--muted)}
+
+.tbtn {
+  background:var(--s2);border:1px solid var(--border);
+  color:var(--muted);font-family:'JetBrains Mono',monospace;
+  font-size:10px;padding:6px 14px;cursor:pointer;
+  letter-spacing:1px;text-transform:uppercase;transition:all .15s;
+}
+.tbtn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── PANELS ──────────────────────────────── */
+.panel{display:none;flex-direction:column;flex:1}
+.panel.active{display:flex}
+
+/* ── PROGRESS ─────────────────────────────── */
+.progress-section {
+  padding:24px 24px 0;display:none;
+}
+.progress-section.visible{display:block}
+
+.prog-label{font-size:11px;color:var(--muted);margin-bottom:10px}
+.prog-bar-wrap{height:3px;background:var(--border);overflow:hidden;margin-bottom:20px}
+.prog-bar{
+  height:100%;background:linear-gradient(90deg,var(--accent),var(--blue));
+  width:0%;transition:width .3s;
+}
+
+.terminal {
+  background:#000;border:1px solid var(--border);
+  padding:14px;font-size:11px;line-height:1.8;
+  max-height:220px;overflow-y:auto;
+}
+.terminal::-webkit-scrollbar{width:3px}
+.terminal::-webkit-scrollbar-thumb{background:var(--border)}
+
+.log{display:flex;gap:10px}
+.log-t{color:var(--muted);flex-shrink:0;font-size:10px}
+.log-info{color:var(--accent)}
+.log-warn{color:var(--yellow)}
+.log-err{color:var(--red)}
+.log-d{color:#6060a0}
+
+/* ── ASSETS PANEL ────────────────────────── */
+.assets-list{padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+
+.asset-row {
+  background:var(--s1);border:1px solid var(--border);
+  overflow:hidden;transition:border-color .15s;
+}
+.asset-row:hover{border-color:var(--border)}
+
+.asset-head {
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;cursor:pointer;user-select:none;
+}
+
+.badge {
+  font-size:9px;padding:2px 8px;letter-spacing:1.5px;font-weight:700;flex-shrink:0;
+}
+.b-html{background:rgba(255,112,67,.15);color:var(--orange);border:1px solid rgba(255,112,67,.3)}
+.b-css {background:rgba(77,159,255,.15);color:var(--blue)  ;border:1px solid rgba(77,159,255,.3)}
+.b-js  {background:rgba(255,204,2,.15) ;color:var(--yellow);border:1px solid rgba(255,204,2,.3)}
+.b-img {background:rgba(0,255,136,.10) ;color:var(--accent);border:1px solid rgba(0,255,136,.2)}
+.b-font{background:rgba(155,114,255,.15);color:var(--purple);border:1px solid rgba(155,114,255,.3)}
+.b-json{background:rgba(255,68,102,.1);color:var(--red)  ;border:1px solid rgba(255,68,102,.2)}
+.b-other{background:var(--s2);color:var(--muted);border:1px solid var(--border)}
+
+.asset-url{
+  flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+}
+.asset-url.inline-url{color:var(--muted);font-style:italic}
+
+.asset-size{font-size:10px;color:var(--muted);flex-shrink:0;white-space:nowrap}
+.asset-err{font-size:10px;color:var(--red);flex-shrink:0}
+
+.row-btns{display:flex;gap:4px;flex-shrink:0}
+.rbtn{
+  background:var(--bg);border:1px solid var(--border);
+  color:var(--muted);font-family:'JetBrains Mono',monospace;
+  font-size:9px;padding:4px 8px;cursor:pointer;transition:all .12s;
+}
+.rbtn:hover{border-color:var(--accent);color:var(--accent)}
+.rbtn.done{border-color:var(--accent);color:var(--accent)}
+
+.chevron{font-size:9px;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.asset-row.open .chevron{transform:rotate(90deg)}
+
+.asset-body{display:none;border-top:1px solid var(--border)}
+.asset-row.open .asset-body{display:block}
+.asset-preview{
+  padding:14px;font-size:10.5px;line-height:1.65;
+  color:#7878b0;max-height:320px;overflow-y:auto;
+  white-space:pre-wrap;word-break:break-all;background:#000;
+}
+.asset-preview::-webkit-scrollbar{width:3px}
+.asset-preview::-webkit-scrollbar-thumb{background:var(--border)}
+
+.fetch-btn-wrap{
+  padding:12px 14px;border-top:1px solid var(--border);
+  display:flex;gap:8px;align-items:center;
+}
+
+/* ── LIBRARIES PANEL ─────────────────────── */
+.libs-grid{
+  padding:20px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;
+}
+
+.lib-card{
+  background:var(--s1);border:1px solid var(--border);
+  padding:14px 16px;display:flex;align-items:center;gap:14px;
+}
+.lib-icon{font-size:22px;flex-shrink:0}
+.lib-name{font-size:13px;font-weight:700;margin-bottom:3px}
+.lib-ver{font-size:10px;color:var(--accent)}
+.lib-conf{font-size:9px;color:var(--muted);margin-top:2px}
+.conf-high{color:var(--accent)}
+.conf-med{color:var(--yellow)}
+
+/* ── SUMMARY PANEL ───────────────────────── */
+.summary-grid{
+  padding:20px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;
+}
+.sum-card{
+  background:var(--s1);border:1px solid var(--border);
+  padding:20px;text-align:center;
+}
+.sum-num{
+  font-family:'Syne',sans-serif;font-size:40px;font-weight:800;
+  color:var(--accent);line-height:1;margin-bottom:6px;
+}
+.sum-label{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+
+.info-table{
+  margin:0 20px 20px;border:1px solid var(--border);
+}
+.info-row{display:flex;border-bottom:1px solid var(--border)}
+.info-row:last-child{border-bottom:none}
+.info-key{
+  width:160px;flex-shrink:0;padding:10px 14px;
+  background:var(--s2);color:var(--muted);font-size:11px;
+  border-right:1px solid var(--border);
+}
+.info-val{padding:10px 14px;font-size:11px;word-break:break-all;flex:1}
+
+/* ── HTML PANEL ──────────────────────────── */
+.html-preview{
+  margin:16px 20px;background:#000;border:1px solid var(--border);
+  padding:16px;font-size:11px;line-height:1.65;color:#7878b0;
+  max-height:600px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+}
+
+/* ── EMPTY ───────────────────────────────── */
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-icon{font-size:36px;margin-bottom:12px;opacity:.4}
+
+/* ── SCROLLBAR ───────────────────────────── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="logo">Asset<span>Ripper</span></div>
+    <div class="url-bar">
+      <input type="text" id="urlIn" placeholder="https://example.com" autocomplete="off" spellcheck="false">
+      <button class="go-btn" id="goBtn" onclick="extract()">EXTRACT</button>
+    </div>
+    <div class="topbar-right">
+      <div class="server-status">
+        <div class="status-dot" id="srvDot"></div>
+        <span id="srvLabel">checking server...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Views</div>
+        <div class="nav-item active" onclick="showPanel('overview',this)">
+          <div class="nav-icon">📊</div>
+          <div class="nav-label">Overview</div>
+        </div>
+        <div class="nav-item" onclick="showPanel('html',this)">
+          <div class="nav-icon">📄</div>
+          <div class="nav-label">HTML</div>
+          <div class="nav-count" id="nc-html">0</div>
+        </div>
+        <div class="nav-item" onclick="showPanel('css',this)">
+          <div class="nav-icon">🎨</div>
+          <div class="nav-label">CSS</div>
+          <div class="nav-count" id="nc-css">0</div>
+        </div>
+        <div class="nav-item" onclick="showPanel('js',this)">
+          <div class="nav-icon">⚡</div>
+          <div class="nav-label">JavaScript</div>
+          <div class="nav-count" id="nc-js">0</div>
+        </div>
+        <div class="nav-item" onclick="showPanel('img',this)">
+          <div class="nav-icon">🖼️</div>
+          <div class="nav-label">Images</div>
+          <div class="nav-count" id="nc-img">0</div>
+        </div>
+        <div class="nav-item" onclick="showPanel('font',this)">
+          <div class="nav-icon">🔤</div>
+          <div class="nav-label">Fonts</div>
+          <div class="nav-count" id="nc-font">0</div>
+        </div>
+        <div class="nav-item" onclick="showPanel('other',this)">
+          <div class="nav-icon">📦</div>
+          <div class="nav-label">Other</div>
+          <div class="nav-count" id="nc-other">0</div>
+        </div>
+        <div class="nav-item" onclick="showPanel('libs',this)">
+          <div class="nav-icon">📚</div>
+          <div class="nav-label">Libraries</div>
+          <div class="nav-count" id="nc-libs">0</div>
+        </div>
+      </div>
+
+      <div class="sidebar-stats" id="sidebarStats" style="display:none">
+        <div class="sidebar-label" style="padding:0 0 8px">Stats</div>
+        <div class="stat-row"><span class="stat-label">Total</span><span class="stat-val" id="st-total">0</span></div>
+        <div class="stat-row"><span class="stat-label">Fetched</span><span class="stat-val" id="st-fetched">0 KB</span></div>
+        <div class="stat-row"><span class="stat-label">Libraries</span><span class="stat-val" id="st-libs">0</span></div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content" id="content">
+
+      <!-- Hero -->
+      <div class="hero" id="hero">
+        <pre class="hero-ascii">
+ ▄▄▄  ██████  ██████  ██████ ████████
+▀▀▀██ ██      ██      ██        ██
+ ▄▄▄██ ██████  █████  ██████    ██
+██  ██     ██     ██     ██     ██
+ ████  ██████ ██████ ██████     ██</pre>
+        <div class="hero-title">Website <span>Frontend</span> Extractor</div>
+        <div class="hero-sub">بيجيب كل الـ assets من أي موقع — HTML, CSS, JS, Images, Fonts, Libraries</div>
+        <div class="how-to">
+          <div class="how-step">
+            <div class="step-num">1</div>
+            <div class="step-text">شغل <code style="color:var(--accent)">python server.py</code> في التيرمينال</div>
+          </div>
+          <div class="how-step">
+            <div class="step-num">2</div>
+            <div class="step-text">حط رابط الموقع فوق واضغط EXTRACT</div>
+          </div>
+          <div class="how-step">
+            <div class="step-num">3</div>
+            <div class="step-text">اتصفح كل الملفات وحملهم</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-section" id="progressSection">
+        <div class="prog-label" id="progLabel">Initializing...</div>
+        <div class="prog-bar-wrap"><div class="prog-bar" id="progBar"></div></div>
+        <div class="terminal" id="terminal"></div>
+      </div>
+
+      <!-- Overview Panel -->
+      <div class="panel" id="panel-overview">
+        <div class="summary-grid" id="summaryGrid"></div>
+        <div class="info-table" id="infoTable"></div>
+      </div>
+
+      <!-- HTML Panel -->
+      <div class="panel" id="panel-html">
+        <div class="html-preview" id="htmlPreview"></div>
+      </div>
+
+      <!-- Asset Panels -->
+      <div class="panel" id="panel-css">
+        <div class="toolbar visible" id="tb-css">
+          <div class="search-wrap"><input type="text" placeholder="Filter CSS..." oninput="filterPanel('css',this.value)"></div>
+          <button class="tbtn" onclick="exportURLs('css')">Export URLs</button>
+          <button class="tbtn" onclick="fetchAllOfType('css')">Fetch All Content</button>
+        </div>
+        <div class="assets-list" id="list-css"></div>
+      </div>
+
+      <div class="panel" id="panel-js">
+        <div class="toolbar visible" id="tb-js">
+          <div class="search-wrap"><input type="text" placeholder="Filter JS..." oninput="filterPanel('js',this.value)"></div>
+          <button class="tbtn" onclick="exportURLs('js')">Export URLs</button>
+          <button class="tbtn" onclick="fetchAllOfType('js')">Fetch All Content</button>
+          <button class="tbtn" onclick="genWget('js')">wget Script</button>
+        </div>
+        <div class="assets-list" id="list-js"></div>
+      </div>
+
+      <div class="panel" id="panel-img">
+        <div class="toolbar visible">
+          <div class="search-wrap"><input type="text" placeholder="Filter images..." oninput="filterPanel('img',this.value)"></div>
+          <button class="tbtn" onclick="exportURLs('img')">Export URLs</button>
+          <button class="tbtn" onclick="genWget('img')">wget Script</button>
+        </div>
+        <div class="assets-list" id="list-img"></div>
+      </div>
+
+      <div class="panel" id="panel-font">
+        <div class="toolbar visible">
+          <div class="search-wrap"><input type="text" placeholder="Filter fonts..." oninput="filterPanel('font',this.value)"></div>
+          <button class="tbtn" onclick="exportURLs('font')">Export URLs</button>
+        </div>
+        <div class="assets-list" id="list-font"></div>
+      </div>
+
+      <div class="panel" id="panel-other">
+        <div class="assets-list" id="list-other"></div>
+      </div>
+
+      <!-- Libraries Panel -->
+      <div class="panel" id="panel-libs">
+        <div class="libs-grid" id="libsGrid"></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ─── STATE ────────────────────────────────────────
+let state = {
+  assets: [],
+  libs: [],
+  html: '',
+  stats: {},
+  url: ''
+};
+let currentPanel = 'overview';
+
+// ─── SERVER CHECK ─────────────────────────────────
+async function checkServer() {
+  try {
+    const r = await fetch('/api/extract', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url:'', _ping:true})});
+    document.getElementById('srvDot').className = 'status-dot ok';
+    document.getElementById('srvLabel').textContent = 'server online';
+  } catch {
+    document.getElementById('srvDot').className = 'status-dot err';
+    document.getElementById('srvLabel').textContent = 'server offline — run server.py';
+  }
+}
+checkServer();
+
+// ─── LOGGING ──────────────────────────────────────
+function log(msg, type='info') {
+  const t = document.getElementById('terminal');
+  const now = new Date().toLocaleTimeString('en',{hour12:false});
+  const d = document.createElement('div');
+  d.className = 'log';
+  d.innerHTML = `<span class="log-t">${now}</span><span class="log-${type}">${msg}</span>`;
+  t.appendChild(d);
+  t.scrollTop = t.scrollHeight;
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progBar').style.width = pct + '%';
+  if (label) document.getElementById('progLabel').textContent = label;
+}
+
+// ─── EXTRACT ──────────────────────────────────────
+async function extract() {
+  let url = document.getElementById('urlIn').value.trim();
+  if (!url) { document.getElementById('urlIn').focus(); return; }
+  if (!url.startsWith('http')) url = 'https://' + url;
+
+  document.getElementById('goBtn').disabled = true;
+  document.getElementById('hero').style.display = 'none';
+  document.getElementById('progressSection').classList.add('visible');
+  document.getElementById('terminal').innerHTML = '';
+  setProgress(0, 'Connecting to server...');
+
+  log(`Target: ${url}`);
+
+  try {
+    setProgress(10, 'Fetching website...');
+    log('Sending request to Python backend...');
+
+    const resp = await fetch('/api/extract', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ url, fetch_content: true, max_js: 15 })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+
+    setProgress(70, 'Parsing results...');
+    const data = await resp.json();
+
+    state.assets = data.assets || [];
+    state.libs   = data.libraries || [];
+    state.html   = data.html_preview || '';
+    state.stats  = data.stats || {};
+    state.url    = data.final_url || url;
+
+    log(`HTML: ${(data.html_size/1024).toFixed(1)} KB`);
+    log(`Assets found: ${state.assets.length}`);
+    log(`Libraries detected: ${state.libs.length}`);
+    state.assets.forEach(a => {
+      if (!a.inline) log(`  [${a.type.toUpperCase()}] ${a.url.slice(0,70)}`, 'd');
+    });
+    state.libs.forEach(l => log(`  ${l.icon} ${l.name} ${l.version}`, 'info'));
+
+    setProgress(90, 'Rendering...');
+
+    renderAll();
+    setProgress(100, `Done — ${state.assets.length} assets`);
+
+    // Switch to overview
+    setTimeout(() => {
+      document.getElementById('progressSection').classList.remove('visible');
+      showPanel('overview', document.querySelector('.nav-item'));
+    }, 800);
+
+  } catch(e) {
+    log(`Error: ${e.message}`, 'err');
+    setProgress(0, 'Error — ' + e.message);
+    if (e.message.includes('fetch')) {
+      log('Is the Python server running? → python server.py', 'warn');
+    }
+  }
+
+  document.getElementById('goBtn').disabled = false;
+}
+
+// ─── RENDER ───────────────────────────────────────
+function renderAll() {
+  const s = state.stats;
+
+  // Sidebar counts
+  document.getElementById('nc-html').textContent  = s.html  || 0;
+  document.getElementById('nc-css').textContent   = s.css   || 0;
+  document.getElementById('nc-js').textContent    = s.js    || 0;
+  document.getElementById('nc-img').textContent   = s.img   || 0;
+  document.getElementById('nc-font').textContent  = s.font  || 0;
+  document.getElementById('nc-other').textContent = s.other || 0;
+  document.getElementById('nc-libs').textContent  = state.libs.length;
+
+  const totalSize = state.assets.reduce((n,a) => n + (a.size||0), 0);
+  document.getElementById('st-total').textContent   = s.total || 0;
+  document.getElementById('st-fetched').textContent = fmt(totalSize);
+  document.getElementById('st-libs').textContent    = state.libs.length;
+  document.getElementById('sidebarStats').style.display = 'block';
+
+  // Overview summary
+  document.getElementById('summaryGrid').innerHTML = [
+    [s.total||0,   'Total Assets',  'var(--accent)'],
+    [s.css||0,     'CSS Files',     'var(--blue)'],
+    [s.js||0,      'JS Files',      'var(--yellow)'],
+    [s.img||0,     'Images',        'var(--accent)'],
+    [s.font||0,    'Fonts',         'var(--purple)'],
+    [state.libs.length,'Libraries', 'var(--blue)'],
+  ].map(([n,l,c]) => `
+    <div class="sum-card">
+      <div class="sum-num" style="color:${c}">${n}</div>
+      <div class="sum-label">${l}</div>
+    </div>
+  `).join('');
+
+  // Info table
+  document.getElementById('infoTable').innerHTML = [
+    ['Target URL', state.url],
+    ['HTML Size', fmt(state.html?.length || 0)],
+    ['Total Assets', s.total],
+    ['Fetched Size', fmt(totalSize)],
+    ['Libraries', state.libs.map(l => l.name).join(', ') || 'none detected'],
+  ].map(([k,v]) => `
+    <div class="info-row">
+      <div class="info-key">${k}</div>
+      <div class="info-val">${esc(String(v))}</div>
+    </div>
+  `).join('');
+
+  // HTML preview
+  document.getElementById('htmlPreview').textContent = state.html || '(empty)';
+
+  // Asset lists
+  ['css','js','img','font','other'].forEach(type => {
+    const list = state.assets.filter(a => a.type === type);
+    renderList(type, list);
+  });
+
+  // Libraries
+  document.getElementById('libsGrid').innerHTML = state.libs.length
+    ? state.libs.map(l => `
+        <div class="lib-card">
+          <div class="lib-icon">${l.icon}</div>
+          <div>
+            <div class="lib-name">${l.name}</div>
+            <div class="lib-ver">${l.version}</div>
+            <div class="lib-conf ${l.confidence==='high'?'conf-high':'conf-med'}">
+              ● ${l.confidence} confidence
+            </div>
+          </div>
+        </div>
+      `).join('')
+    : '<div class="empty"><div class="empty-icon">🔍</div>No libraries detected</div>';
+}
+
+// ─── ASSET LIST ───────────────────────────────────
+function renderList(type, assets) {
+  const el = document.getElementById('list-' + type);
+  if (!assets.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>No assets of this type</div>';
+    return;
+  }
+  el.innerHTML = assets.map((a, i) => assetRow(a, i, type)).join('');
+}
+
+function assetRow(a, i, type) {
+  const bclass = `b-${a.type}`;
+  const label  = a.type.toUpperCase();
+  const url    = a.inline ? a.url : (a.url.length > 80 ? '…' + a.url.slice(-77) : a.url);
+  const sizeStr = a.size ? fmt(a.size) : '';
+  const errStr  = a.fetch_error ? `⚠ ${a.fetch_error.slice(0,40)}` : '';
+  const hasContent = !!a.content;
+  const previewText = hasContent ? esc(a.content.substring(0,3000)) : (a.fetch_error ? `// Error: ${a.fetch_error}` : '// Click "Fetch" to load content');
+
+  const openBtn = !a.inline ? `<button class="rbtn" onclick="event.stopPropagation();window.open('${a.url}','_blank')">OPEN</button>` : '';
+  const dlBtn   = hasContent && !a.inline ? `<button class="rbtn" onclick="event.stopPropagation();dlAsset(${i},'${type}')">DL</button>` : '';
+  const cpBtn   = `<button class="rbtn" id="cp-${type}-${i}" onclick="event.stopPropagation();cpUrl(this,'${a.url}')">COPY</button>`;
+  const fetchBtn = !a.inline && !hasContent ? `<button class="rbtn" onclick="event.stopPropagation();fetchSingle(this,'${a.url}','${type}',${i})">FETCH</button>` : '';
+
+  return `
+    <div class="asset-row" id="row-${type}-${i}">
+      <div class="asset-head" onclick="toggle('${type}',${i})">
+        <div class="badge ${bclass}">${label}</div>
+        <div class="asset-url ${a.inline?'inline-url':''}" title="${a.url}">${url}</div>
+        ${sizeStr ? `<div class="asset-size">${sizeStr}</div>` : ''}
+        ${errStr  ? `<div class="asset-err">${errStr}</div>` : ''}
+        <div class="row-btns">${openBtn}${dlBtn}${fetchBtn}${cpBtn}</div>
+        <div class="chevron">▶</div>
+      </div>
+      <div class="asset-body">
+        <div class="asset-preview" id="preview-${type}-${i}">${previewText}</div>
+      </div>
+    </div>`;
+}
+
+// ─── INTERACTIONS ─────────────────────────────────
+function toggle(type, i) {
+  document.getElementById(`row-${type}-${i}`).classList.toggle('open');
+}
+
+function cpUrl(btn, url) {
+  navigator.clipboard.writeText(url);
+  btn.textContent = '✓';
+  btn.classList.add('done');
+  setTimeout(() => { btn.textContent = 'COPY'; btn.classList.remove('done'); }, 1500);
+}
+
+function dlAsset(i, type) {
+  const assets = state.assets.filter(a => a.type === type);
+  const a = assets[i];
+  if (!a?.content) return;
+  const blob = new Blob([a.content], {type:'text/plain'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = (a.url.split('/').pop().split('?')[0]) || 'asset.txt';
+  link.click();
+}
+
+async function fetchSingle(btn, url, type, i) {
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/fetch', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    });
+    const data = await r.json();
+    if (data.content) {
+      // Update in state
+      const assets = state.assets.filter(a => a.type === type);
+      assets[i].content = data.content;
+      assets[i].size = data.size;
+      document.getElementById(`preview-${type}-${i}`).textContent = data.content.substring(0, 3000);
+      btn.textContent = '✓';
+      btn.classList.add('done');
+    } else {
+      btn.textContent = 'ERR';
+    }
+  } catch {
+    btn.textContent = 'ERR';
+  }
+}
+
+async function fetchAllOfType(type) {
+  const assets = state.assets.filter(a => a.type === type && !a.inline && !a.content);
+  for (let i = 0; i < assets.length; i++) {
+    const a = assets[i];
+    const idx = state.assets.filter(x => x.type === type).indexOf(a);
+    try {
+      const r = await fetch('/api/fetch', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:a.url})});
+      const data = await r.json();
+      if (data.content) {
+        a.content = data.content; a.size = data.size;
+        const previewEl = document.getElementById(`preview-${type}-${idx}`);
+        if (previewEl) previewEl.textContent = data.content.substring(0, 3000);
+      }
+    } catch {}
+  }
+}
+
+function filterPanel(type, q) {
+  q = q.toLowerCase();
+  const all = state.assets.filter(a => a.type === type);
+  const filtered = q ? all.filter(a => a.url.toLowerCase().includes(q)) : all;
+  renderList(type, filtered);
+}
+
+function exportURLs(type) {
+  const urls = state.assets.filter(a => a.type === type && !a.inline).map(a => a.url).join('\n');
+  const blob = new Blob([urls], {type:'text/plain'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${type}-urls.txt`;
+  link.click();
+}
+
+function genWget(type) {
+  const urls = state.assets.filter(a => a.type === type && !a.inline).map(a => a.url);
+  const domain = new URL(state.url).hostname.replace(/\./g,'_');
+  const script = `#!/bin/bash\n# ${type.toUpperCase()} Assets — ${state.url}\nmkdir -p ./${domain}_${type}\n\n${urls.map(u=>`wget -q -P ./${domain}_${type} "${u}"`).join('\n')}\n\necho "Done!"`;
+  const blob = new Blob([script], {type:'text/plain'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `wget_${type}.sh`;
+  link.click();
+}
+
+// ─── PANEL NAVIGATION ─────────────────────────────
+function showPanel(name, navEl) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (navEl) navEl.closest('.nav-item').classList.add('active');
+
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  currentPanel = name;
+}
+
+// ─── UTILS ────────────────────────────────────────
+function fmt(bytes) {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Enter key
+document.getElementById('urlIn').addEventListener('keydown', e => {
+  if (e.key === 'Enter') extract();
+});
+</script>
+</body>
+</html>
